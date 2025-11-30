@@ -75,5 +75,37 @@ app.delete('/order/:id', async (req, res) => {
 }
 );
 
-
+app.put('/order/:id', async (req, res) => {
+    const items = [];
+    for(let i = 0; i < req.body.items.length; i++) {
+        items.push({
+            productId: parseInt(req.body.items[i].idItem),
+            quantity: req.body.items[i].quantidadeItem,
+            price: req.body.items[i].valorItem
+        });
+    }
+    try {
+        const updatedOrder = await prisma.order.update({
+            where: {
+                orderId: req.params.id
+            },
+            data: {
+                quantity: req.body.quantidadeItem,
+                price: req.body.valorItem,
+                value: req.body.valorTotal,
+                items: {
+                    deleteMany: {},
+                    create: items
+                }
+            },
+            include: {
+                items: true
+            }
+        });
+        res.status(200).json(updatedOrder);
+    } catch (error) {
+        res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+}
+);
 app.listen(3000);
