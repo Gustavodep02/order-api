@@ -47,7 +47,7 @@ app.get('/order/list', async (req, res) => {
 app.get('/order/:id', async (req, res) => {
     const order = await prisma.order.findUnique({
         where: {
-            orderId: (req.params.id)
+            orderId: req.params.id
         },
         include: {
             items: true
@@ -56,9 +56,24 @@ app.get('/order/:id', async (req, res) => {
     if(order) {
         res.status(200).json(order);
     } else {
-        res.status(404).json({ error: 'Order not found' });
+        res.status(404).json({ error: 'Pedido não encontrado' });
     }
 }
 );
+
+app.delete('/order/:id', async (req, res) => {
+    try {
+        await prisma.order.delete({
+            where: {    
+                orderId: req.params.id
+            }
+        });
+        res.status(204).send();
+    } catch (error) {
+        res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+}
+);
+
 
 app.listen(3000);
