@@ -3,6 +3,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
+import jwt from 'jsonwebtoken';
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -11,7 +12,8 @@ const prisma = new PrismaClient({ adapter });
 const app = express();
 app.use(express.json());
 
-app.post('/order', async (req, res) => {
+//rotas de pedido
+app.post('/order', authMiddleware, async (req, res) => {
     const items = [];
     for(let i = 0; i < req.body.items.length; i++) {
         items.push({
@@ -34,7 +36,7 @@ app.post('/order', async (req, res) => {
 }
 );
 
-app.get('/order/list', async (req, res) => {
+app.get('/order/list', authMiddleware, async (req, res) => {
     const orders = await prisma.order.findMany({
         include: {
             items: true
@@ -44,7 +46,7 @@ app.get('/order/list', async (req, res) => {
 }
 );
 
-app.get('/order/:id', async (req, res) => {
+app.get('/order/:id', authMiddleware, async (req, res) => {
     const order = await prisma.order.findUnique({
         where: {
             orderId: req.params.id
@@ -61,7 +63,7 @@ app.get('/order/:id', async (req, res) => {
 }
 );
 
-app.delete('/order/:id', async (req, res) => {
+app.delete('/order/:id', authMiddleware, async (req, res) => {
     try {
         await prisma.order.delete({
             where: {    
@@ -75,7 +77,7 @@ app.delete('/order/:id', async (req, res) => {
 }
 );
 
-app.put('/order/:id', async (req, res) => {
+app.put('/order/:id', authMiddleware, async (req, res) => {
     const items = [];
     for(let i = 0; i < req.body.items.length; i++) {
         items.push({
@@ -109,3 +111,43 @@ app.put('/order/:id', async (req, res) => {
 }
 );
 app.listen(3000);
+
+
+// config da autenticacao com jwt
+
+export function generateToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: '2h' }
+  );
+}
+
+export function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader)
+    return res.status(401).json({ error: "Token não enviado" });
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; 
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+
+app.post('/login', (req, res) => {
+    const { email, senha } = req.body;
+
+    if (email === "adm@teste.com" && senha === "12345") {
+        return res.json({
+            token: generateToken({ id: 1, email })
+        });
+    }
+
+    res.status(401).json({ error: "Credenciais inválidas" });
+});
